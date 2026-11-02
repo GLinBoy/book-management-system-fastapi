@@ -4,11 +4,9 @@ A learning project for building a book catalog REST API with Python and FastAPI,
 
 ## Project status
 
-Early development: project initialization and dependency management.
+Early development. The project skeleton is in place: uv project setup, an application factory, a health router, environment-based configuration, and a first set of tests and quality checks.
 
-The repository currently contains the uv project configuration, dependency lockfile, Python version selection, and Git ignore rules. The application, database layer, endpoints, migrations, and tests are planned work, not completed features.
-
-See [GitHub issues](https://github.com/GLinBoy/book-management-system-fastapi/issues) for implementation progress.
+The database layer, models, migrations, entity endpoints, and seed data are planned work, not completed features. See [GitHub issues](https://github.com/GLinBoy/book-management-system-fastapi/issues) for implementation progress.
 
 ## Planned scope
 
@@ -25,20 +23,20 @@ Authentication is outside the current scope. This project is not ready for publi
 
 ## Technology choices
 
-| Area | Technology |
-| --- | --- |
-| Python baseline | Python 3.14+ |
-| Project and dependency management | uv |
-| API framework | FastAPI, synchronous request/database workflow |
-| ASGI server | Uvicorn |
-| Database access | SQLAlchemy |
-| Database migrations | Alembic |
-| Settings | pydantic-settings |
-| PostgreSQL driver | Psycopg |
-| Testing | pytest, pytest-cov, HTTPX |
-| Linting and formatting | Ruff |
-| Static type checking | mypy |
-| Development data | Faker |
+| Area                              | Technology                                     |
+| --------------------------------- | ---------------------------------------------- |
+| Python baseline                   | Python 3.14+                                   |
+| Project and dependency management | uv                                             |
+| API framework                     | FastAPI, synchronous request/database workflow |
+| ASGI server                       | Uvicorn                                        |
+| Database access                   | SQLAlchemy                                     |
+| Database migrations               | Alembic                                        |
+| Settings                          | pydantic-settings                              |
+| PostgreSQL driver                 | Psycopg                                        |
+| Testing                           | pytest, pytest-cov, HTTPX                      |
+| Linting and formatting            | Ruff                                           |
+| Static type checking              | mypy                                           |
+| Development data                  | Faker                                          |
 
 Direct dependencies are declared in `pyproject.toml`; resolved dependency versions are recorded in `uv.lock`.
 
@@ -50,14 +48,14 @@ Direct dependencies are declared in `pyproject.toml`; resolved dependency versio
 
 The development workflow targets Linux, including Manjaro and Arch Linux under WSL 2. On WSL, keep the checkout inside the Linux filesystem, for example `~/projects`, rather than `/mnt/c`.
 
-PostgreSQL and Docker are not required for the current initialization checkpoint.
+PostgreSQL and Docker are not required for local development with the default `dev` profile.
 
 ## Getting started
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/GLinBoy/book-management-system-fastapi.git
+git clone [https://github.com/GLinBoy/book-management-system-fastapi.git](https://github.com/GLinBoy/book-management-system-fastapi.git)
 cd book-management-system-fastapi
 ```
 
@@ -80,15 +78,35 @@ uv python install 3.14
 uv sync --locked
 ```
 
-### 3. Verify the installation
+### 3. Configure the environment (optional)
+
+The default `dev` profile works without any configuration. To customize settings, copy the example file:
 
 ```bash
-uv run --locked python --version
-uv run --locked python -c "import sys; print(sys.executable)"
-uv run --locked python -c "import fastapi, uvicorn, sqlalchemy, alembic, pydantic_settings, psycopg; print('Runtime imports OK')"
+cp .env.example .env
 ```
 
-The executable path should point inside this checkout's `.venv`. These are environment smoke checks, not application tests.
+See [Environment profiles](#environment-profiles) for details.
+
+### 4. Run the application
+
+```bash
+uv run fastapi dev app/main.py
+```
+
+Local URLs:
+
+- OpenAPI UI: http://127.0.0.1:8000/docs
+- Health endpoint: http://127.0.0.1:8000/health
+
+Entity endpoints under the planned `/api/v1` prefix are not implemented yet.
+
+### 5. Verify the installation
+
+```bash
+uv run pytest
+uv run --locked python -c "import fastapi, uvicorn, sqlalchemy, alembic, pydantic_settings, psycopg; print('Runtime imports OK')"
+```
 
 ### Optional: activate the virtual environment
 
@@ -101,6 +119,59 @@ deactivate
 ```
 
 Activation changes the current shell's command lookup; it does not synchronize dependencies. Continue to use uv for dependency management.
+
+## Environment profiles
+
+Settings are defined in `app/core/config.py` with pydantic-settings. The `APP_ENV` variable selects the profile, and values are read from environment variables and an optional local `.env` file. Real environment variables take precedence over `.env`.
+
+| Profile         | Database   | Behavior                                                                                     |
+| --------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `dev` (default) | SQLite     | Local development; default URL `sqlite:///./dev.db`                                          |
+| `test`          | SQLite     | Automated tests; default URL `sqlite:///./test.db`. PostgreSQL integration tests are planned |
+| `prod`          | PostgreSQL | Requires `DATABASE_URL`; startup fails if it is missing                                      |
+
+`DATABASE_URL` overrides the default database in any profile. Use the `postgresql+psycopg://` scheme for PostgreSQL:
+
+```text
+postgresql+psycopg://user:password@localhost:5432/books
+```
+
+Switching `APP_ENV` changes the database without code changes:
+
+```bash
+APP_ENV=test uv run fastapi dev app/main.py
+APP_ENV=prod DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/books uv run fastapi dev app/main.py
+```
+
+An invalid `APP_ENV` value is rejected at startup. `.env.example` documents the available variables. Never commit credentials or your real `.env`.
+
+## Tests and code quality
+
+```bash
+uv run pytest
+uv run pytest --cov=app --cov-report=term-missing
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+```
+
+To apply formatting during development:
+
+```bash
+uv run ruff format .
+```
+
+### Make shortcuts
+
+| Command          | Action                       |
+| ---------------- | ---------------------------- |
+| `make run`       | Start the development server |
+| `make test`      | Run the tests                |
+| `make lint`      | Run Ruff checks              |
+| `make typecheck` | Run mypy                     |
+| `make check`     | Lint, type-check, and test   |
+
+The `migrate` and `seed` targets exist but depend on work that is not implemented yet.
 
 ## Dependency management
 
@@ -127,34 +198,34 @@ Review dependency updates and run the available checks before committing them. C
 
 ## Planned architecture
 
-The following layout is a target structure, not the current repository tree:
+The following layout is a target structure. Directories marked as planned do not exist yet.
 
 ```text
 app/
   main.py          # FastAPI application factory
-  core/            # Settings, database setup, IDs, errors, logging
-  models/          # SQLAlchemy models
-  schemas/         # Pydantic request and response schemas
-  repositories/    # Persistence operations
-  services/        # Business rules and use cases
+  core/            # Settings (done); database setup, IDs, errors, logging (planned)
+  models/          # SQLAlchemy models (planned)
+  schemas/         # Pydantic request and response schemas (planned)
+  repositories/    # Persistence operations (planned)
+  services/        # Business rules and use cases (planned)
   api/             # Versioned routers
-  seed/            # Development seed data
+  seed/            # Development seed data (planned)
 tests/
-alembic/
+alembic/           # Migrations (planned)
 ```
 
 The intended dependency flow is routers → services → repositories. Models represent persistence, and schemas define the API boundary. Concrete conventions will evolve as implementation proceeds.
 
 ## Domain design
 
-| Entity | Planned attributes |
-| --- | --- |
-| Book | ID, title, ISBN, publication year, price, description, publisher ID |
-| Author | ID, name, biography, birth year |
-| Publisher | ID, name, country, established year |
-| Category | ID, name, description |
-| BookAuthor | Book ID and author ID |
-| BookCategory | Book ID and category ID |
+| Entity       | Planned attributes                                                  |
+| ------------ | ------------------------------------------------------------------- |
+| Book         | ID, title, ISBN, publication year, price, description, publisher ID |
+| Author       | ID, name, biography, birth year                                     |
+| Publisher    | ID, name, country, established year                                 |
+| Category     | ID, name, description                                               |
+| BookAuthor   | Book ID and author ID                                               |
+| BookCategory | Book ID and category ID                                             |
 
 Relationships:
 
@@ -164,58 +235,6 @@ Relationships:
 - Association tables use composite primary keys.
 
 The [original system design](https://app.notion.com/p/glinboy/book-management-system-2eb5d93da3318090b159e56dc6c73c22?source=copy_link) uses integer IDs. The implementation roadmap changes entity primary keys and their corresponding foreign keys to UUID v7. Access to the Notion page may require permission.
-
-## Planned environment profiles
-
-Profile support has not been implemented yet. The intended behavior is:
-
-| Profile | Database | Behavior |
-| --- | --- | --- |
-| `dev` | SQLite | Local development; default URL `sqlite:///./dev.db` |
-| `test` | SQLite | Isolated automated tests; PostgreSQL integration tests will also be added |
-| `prod` | PostgreSQL | Requires `DATABASE_URL`; missing configuration must fail at startup |
-
-`APP_ENV` will select `dev`, `test`, or `prod`. Settings will use pydantic-settings with local `.env` support. A tracked `.env.example` will document configuration when this feature is implemented. Never commit credentials in `.env`.
-
-## Running the application — future step
-
-There is no runnable application at the initialization checkpoint.
-
-Once `app/main.py` provides the planned `create_app()` factory, the intended development command is:
-
-```bash
-uv run uvicorn app.main:create_app --factory --reload
-```
-
-Expected local URLs after the application and routes are implemented:
-
-- OpenAPI UI: http://127.0.0.1:8000/docs
-- Health endpoint: http://127.0.0.1:8000/health
-- API prefix: `/api/v1`
-
-These URLs are planned interfaces, not currently available endpoints.
-
-## Tests and code quality
-
-The tools are declared as development dependencies. Test files and project-specific tool configuration are still to be added.
-
-Once the corresponding files and configuration exist:
-
-```bash
-uv run pytest
-uv run pytest --cov=app --cov-report=term-missing
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy app tests
-```
-
-To apply formatting during development:
-
-```bash
-uv run ruff format .
-```
-
-At the initialization checkpoint, pytest may report that no tests were collected, and commands targeting `app` or `tests` cannot succeed until those directories exist. Installing a tool does not mean its checks have been configured or passed.
 
 ## Migrations and seed data — future steps
 
@@ -231,7 +250,7 @@ After the seed module is implemented:
 uv run python -m app.seed
 ```
 
-Development seeding must not run automatically in production. Both commands depend on future implementation and are not part of the initial environment verification.
+Development seeding must not run automatically in production.
 
 ## Clean-checkout verification
 
@@ -239,24 +258,26 @@ From a separate clone of the committed branch:
 
 ```bash
 uv sync --locked
-uv run --locked python -c "import fastapi, sqlalchemy, psycopg; print('Clean-checkout imports OK')"
+uv run pytest
 git status --short
 ```
 
-Successful dependency installation and imports, with no tracked changes, are the initialization acceptance check. Run application tests as well once they exist. Create a separate environment on each machine rather than copying `.venv` between machines.
+Tests should pass and `git status` should show no tracked changes. Create a separate environment on each machine rather than copying `.venv` between machines.
 
 ## Roadmap
 
-| Milestone | Scope |
-| --- | --- |
+| Milestone           | Scope                                                           |
+| ------------------- | --------------------------------------------------------------- |
 | M1: Skeleton and DB | Project foundation, database infrastructure, models, migrations |
-| M2: Working API | Shared API infrastructure and entity CRUD |
-| M3: Quality and DX | Seed data, tests, linting, formatting, typing |
-| M4: Ship | Docker and GitHub Actions |
+| M2: Working API     | Shared API infrastructure and entity CRUD                       |
+| M3: Quality and DX  | Seed data, tests, linting, formatting, typing                   |
+| M4: Ship            | Docker and GitHub Actions                                       |
 
 See the repository issues for acceptance criteria and the current implementation order.
 
-## Development approach
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 
 Work in small, issue-focused changes:
 
@@ -269,3 +290,6 @@ Work in small, issue-focused changes:
 
 Keep completed capabilities distinct from planned ones. Update this README as application commands, profiles, migrations, and tests become available.
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
