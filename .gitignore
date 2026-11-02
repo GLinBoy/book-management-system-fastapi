@@ -577,3 +577,4 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/vim,emacs,linux,macos,python,pycharm,windows,pycharm+all,pycharm+iml,visualstudiocode,virtualenv
 
+*.db
