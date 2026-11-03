@@ -25,3 +25,6 @@ migrate:
 seed:
 	@echo "seed: not implemented yet (no seed script)"
 	@exit 1
+
+migrate:
+	uv run alembic upgrade head
