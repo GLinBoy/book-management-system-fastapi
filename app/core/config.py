@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     app_env: AppEnv = AppEnv.DEV
     database_url: str | None = None
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_pre_ping: bool = True
 
     @model_validator(mode="after")
     def _require_database_url_in_prod(self) -> Settings:
