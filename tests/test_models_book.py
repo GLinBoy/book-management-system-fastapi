@@ -78,16 +78,14 @@ def test_unknown_publisher_is_rejected(engine):
             session.commit()
 
 
-def test_deleting_publisher_sets_book_publisher_null(engine):
+def test_deleting_publisher_with_books_is_restricted(engine):
     with Session(engine) as session:
         publisher = Publisher(name="Ace")
         session.add(publisher)
         session.flush()
-        book = Book(title="Dune", publisher_id=publisher.id)
-        session.add(book)
+        session.add(Book(title="Dune", publisher_id=publisher.id))
         session.commit()
 
         session.delete(publisher)
-        session.commit()
-        session.refresh(book)
-        assert book.publisher_id is None
+        with pytest.raises(IntegrityError):
+            session.commit()
