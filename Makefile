@@ -18,10 +18,6 @@ typecheck:
 
 check: lint typecheck test
 
-migrate:
-	@echo "migrate: not implemented yet (Alembic is not set up)"
-	@exit 1
-
 seed:
 	@echo "seed: not implemented yet (no seed script)"
 	@exit 1
