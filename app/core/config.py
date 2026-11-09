@@ -1,7 +1,8 @@
 from enum import StrEnum
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
     db_pool_timeout: int = 30
     db_pool_pre_ping: bool = True
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     @model_validator(mode="after")
     def _require_database_url_in_prod(self) -> Settings:
@@ -38,6 +40,11 @@ class Settings(BaseSettings):
         if self.app_env is AppEnv.TEST:
             return "sqlite:///./test.db"
         return "sqlite:///./dev.db"
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalize_log_level(cls, value: object) -> object:
+        return value.upper() if isinstance(value, str) else value
 
 
 @lru_cache
