@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import ColumnElement, func, inspect, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.base import ExecutableOption
 
 from app.core.pagination import Page, PageParams
 from app.models.base import Base
@@ -28,20 +29,26 @@ class Repository[ModelT: Base]:
         filters: Sequence[ColumnElement[bool]] = (),
         sort: Sequence[str] = (),
         page: PageParams | None = None,
+        order_by: Sequence[ColumnElement[Any]] | None = None,
+        options: Sequence[ExecutableOption] = (),
     ) -> Page[ModelT]:
         page = page or PageParams()
-        total = self.session.execute(
-            select(func.count()).select_from(self.model).where(*filters)
-        ).scalar_one()
-        statement = (
-            select(self.model)
-            .where(*filters)
-            .order_by(*self._order_by(sort))
-            .offset(page.offset)
-            .limit(page.size)
-        )
+        total = self.count(filters=filters)
+        statement = select(self.model).options(*options).where(*filters)
+        clauses = list(order_by) if order_by is not None else list(self._order_by(sort))
+        if not clauses:
+            clauses = list(self._order_by(()))
+        statement = statement.order_by(*clauses).offset(page.offset).limit(page.size)
         items = self.session.scalars(statement).all()
         return Page(items=items, total=total, page=page.page, size=page.size)
+
+    def count(self, *, filters: Sequence[ColumnElement[bool]] = ()) -> int:
+        statement = select(func.count()).select_from(self.model).where(*filters)
+        return self.session.execute(statement).scalar_one()
+
+    def exists(self, *, filters: Sequence[ColumnElement[bool]] = ()) -> bool:
+        statement = select(1).select_from(self.model).where(*filters).limit(1)
+        return self.session.execute(statement).first() is not None
 
     def create(self, data: Mapping[str, Any]) -> ModelT:
         self._check_fields(data)
