@@ -1,8 +1,6 @@
-from typing import Annotated
+from fastapi import APIRouter
 
-from fastapi import Depends
-from sqlalchemy.orm import Session
+from app.api.v1 import publishers
 
-from app.core.database import get_db
-
-DbSession = Annotated[Session, Depends(get_db)]
+router = APIRouter(prefix="/api/v1")
+router.include_router(publishers.router)
