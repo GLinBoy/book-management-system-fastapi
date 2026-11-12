@@ -12,6 +12,11 @@ CategoryName = Annotated[
 ]
 
 
+class CategorySummary(ORMModel):
+    id: uuid.UUID
+    name: str
+
+
 class CategoryBase(ORMModel):
     name: CategoryName
     description: str | None = None

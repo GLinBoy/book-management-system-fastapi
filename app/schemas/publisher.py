@@ -16,6 +16,11 @@ Country = Annotated[
 ]
 
 
+class PublisherSummary(ORMModel):
+    id: uuid.UUID
+    name: str
+
+
 class PublisherBase(ORMModel):
     name: PublisherName
     country: Country | None = None

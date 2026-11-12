@@ -30,6 +30,15 @@ def test_duplicate_fields_are_ignored():
     assert len(parse_sort("name,-name,name", ALLOWED)) == 1
 
 
+def test_nulls_last_option():
+    orders = parse_sort("name,-country", ALLOWED, nulls_last=True)
+
+    assert sql(orders) == [
+        "publishers.name ASC NULLS LAST",
+        "publishers.country DESC NULLS LAST",
+    ]
+
+
 def test_empty_tokens_are_skipped():
     assert len(parse_sort(" name , ,", ALLOWED)) == 1
 

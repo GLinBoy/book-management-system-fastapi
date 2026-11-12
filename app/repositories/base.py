@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from sqlalchemy import ColumnElement, func, inspect, select
@@ -22,6 +22,12 @@ class Repository[ModelT: Base]:
 
     def get(self, id: uuid.UUID) -> ModelT | None:
         return self.session.get(self.model, id)
+
+    def get_many(self, ids: Collection[Any]) -> list[ModelT]:
+        if not ids:
+            return []
+        statement = select(self.model).where(self._primary_keys[0].in_(ids))
+        return list(self.session.scalars(statement).all())
 
     def list(
         self,
