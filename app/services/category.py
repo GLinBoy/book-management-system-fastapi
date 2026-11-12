@@ -7,6 +7,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import Page, PageParams
+from app.models.book import Book
 from app.models.category import Category
 from app.repositories.category import SEARCH_COLUMNS, CategoryRepository
 from app.repositories.query import search_filter
@@ -33,6 +34,19 @@ class CategoryService:
         return self.repository.list(
             filters=filters,
             order_by=order_by,
+            page=page,
+        )
+
+    def list_books(
+        self,
+        category_id: uuid.UUID,
+        *,
+        page: PageParams | None = None,
+    ) -> Page[Book]:
+        self.get(category_id)
+        return self.repository.list_books(
+            category_id,
+            order_by=[Book.title.asc(), Book.id.asc()],
             page=page,
         )
 

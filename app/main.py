@@ -16,6 +16,7 @@ def create_app() -> FastAPI:
         openapi_tags=[
             {"name": "publishers", "description": "Manage publishers."},
             {"name": "authors", "description": "Manage authors."},
+            {"name": "categories", "description": "Manage categories."},
         ],
     )
     application.add_middleware(RequestIdMiddleware)
