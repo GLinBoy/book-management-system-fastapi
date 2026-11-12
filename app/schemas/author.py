@@ -12,6 +12,11 @@ AuthorName = Annotated[
 ]
 
 
+class AuthorSummary(ORMModel):
+    id: uuid.UUID
+    name: str
+
+
 class AuthorBase(ORMModel):
     name: AuthorName
     biography: str | None = None

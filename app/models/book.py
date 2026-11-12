@@ -12,6 +12,7 @@ from app.models.mixins import UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.models.author import Author
     from app.models.category import Category
+    from app.models.publisher import Publisher
 
 
 class Book(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -26,6 +27,7 @@ class Book(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("publishers.id", ondelete="RESTRICT"),
         index=True,
     )
+    publisher: Mapped[Publisher | None] = relationship()
     authors: Mapped[list[Author]] = relationship(
         secondary=book_authors, back_populates="books"
     )
