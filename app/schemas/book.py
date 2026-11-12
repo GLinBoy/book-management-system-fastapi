@@ -91,6 +91,14 @@ class BookUpdate(ORMModel):
         return value
 
 
+class BookAuthorsUpdate(ORMModel):
+    author_ids: list[uuid.UUID]
+
+
+class BookCategoriesUpdate(ORMModel):
+    category_ids: list[uuid.UUID]
+
+
 class BookRead(ORMModel):
     id: uuid.UUID
     title: str

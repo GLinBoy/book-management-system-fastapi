@@ -13,7 +13,13 @@ from app.core.errors import ErrorResponse
 from app.core.pagination import PageParams
 from app.models.book import Book
 from app.repositories.book import SORTABLE
-from app.schemas.book import BookCreate, BookRead, BookUpdate
+from app.schemas.book import (
+    BookAuthorsUpdate,
+    BookCategoriesUpdate,
+    BookCreate,
+    BookRead,
+    BookUpdate,
+)
 from app.services.book import BookService
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -169,6 +175,42 @@ def update_book(
     service: BookServiceDep,
 ) -> Book:
     return service.update(book_id, payload)
+
+
+@router.put(
+    "/{book_id}/authors",
+    response_model=BookRead,
+    summary="Replace a book's authors",
+    description=(
+        "Replace the book's authors with the provided list. "
+        "Send an empty list to clear all authors."
+    ),
+    responses={**_NOT_FOUND, **_UNPROCESSABLE},
+)
+def replace_book_authors(
+    book_id: uuid.UUID,
+    payload: BookAuthorsUpdate,
+    service: BookServiceDep,
+) -> Book:
+    return service.set_authors(book_id, payload.author_ids)
+
+
+@router.put(
+    "/{book_id}/categories",
+    response_model=BookRead,
+    summary="Replace a book's categories",
+    description=(
+        "Replace the book's categories with the provided list. "
+        "Send an empty list to clear all categories."
+    ),
+    responses={**_NOT_FOUND, **_UNPROCESSABLE},
+)
+def replace_book_categories(
+    book_id: uuid.UUID,
+    payload: BookCategoriesUpdate,
+    service: BookServiceDep,
+) -> Book:
+    return service.set_categories(book_id, payload.category_ids)
 
 
 @router.delete(

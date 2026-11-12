@@ -139,6 +139,32 @@ class BookService:
         book = self.get(book_id)
         self.repository.delete(book)
 
+    def set_authors(
+        self,
+        book_id: uuid.UUID,
+        author_ids: Collection[uuid.UUID],
+    ) -> Book:
+        book = self.get(book_id)
+        details: Details = []
+        authors = self._resolve_authors(author_ids, details)
+        self._raise_for_missing(details)
+        book.authors = authors
+        self.session.flush()
+        return self._reload(book)
+
+    def set_categories(
+        self,
+        book_id: uuid.UUID,
+        category_ids: Collection[uuid.UUID],
+    ) -> Book:
+        book = self.get(book_id)
+        details: Details = []
+        categories = self._resolve_categories(category_ids, details)
+        self._raise_for_missing(details)
+        book.categories = categories
+        self.session.flush()
+        return self._reload(book)
+
     def _reload(self, book: Book) -> Book:
         return self.repository.get_with_relations(book.id) or book
 

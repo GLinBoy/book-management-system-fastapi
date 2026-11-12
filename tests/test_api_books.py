@@ -589,3 +589,180 @@ def test_list_unknown_author_filter_returns_empty_page(client):
 
     assert body["total"] == 0
     assert body["items"] == []
+
+
+def test_put_book_authors_replaces_relations(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}/authors",
+        json={"author_ids": [str(authors[0].id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [author["name"] for author in body["authors"]] == ["Frank Herbert"]
+    assert len(body["categories"]) == 2
+    detail = client.get(f"{BASE}/{created['id']}").json()
+    assert [author["name"] for author in detail["authors"]] == ["Frank Herbert"]
+
+
+def test_put_book_authors_can_clear_relations(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    body = client.put(
+        f"{BASE}/{created['id']}/authors",
+        json={"author_ids": []},
+    ).json()
+
+    assert body["authors"] == []
+    assert len(body["categories"]) == 2
+
+
+def test_put_book_authors_rejects_missing_author(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}/authors",
+        json={"author_ids": [str(uuid.uuid4())]},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "unprocessable_entity"
+    assert body["details"][0]["loc"] == ["body", "author_ids"]
+    detail = client.get(f"{BASE}/{created['id']}").json()
+    assert len(detail["authors"]) == 2
+
+
+def test_put_book_authors_missing_book_returns_404(client):
+    response = client.put(
+        f"{BASE}/{uuid.uuid4()}/authors",
+        json={"author_ids": []},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
+def test_put_book_authors_requires_author_ids(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(f"{BASE}/{created['id']}/authors", json={})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+def test_put_book_authors_rejects_null_list(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}/authors",
+        json={"author_ids": None},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+def test_put_book_authors_deduplicates_ids(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+    author_id = str(authors[0].id)
+
+    body = client.put(
+        f"{BASE}/{created['id']}/authors",
+        json={"author_ids": [author_id, author_id]},
+    ).json()
+
+    assert [author["name"] for author in body["authors"]] == ["Frank Herbert"]
+
+
+def test_put_book_categories_replaces_relations(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}/categories",
+        json={"category_ids": [str(categories[1].id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [category["name"] for category in body["categories"]] == ["Adventure"]
+    assert len(body["authors"]) == 2
+
+
+def test_put_book_categories_can_clear_relations(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    body = client.put(
+        f"{BASE}/{created['id']}/categories",
+        json={"category_ids": []},
+    ).json()
+
+    assert body["categories"] == []
+    assert len(body["authors"]) == 2
+
+
+def test_put_book_categories_rejects_missing_category(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}/categories",
+        json={"category_ids": [str(uuid.uuid4())]},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "unprocessable_entity"
+    assert body["details"][0]["loc"] == ["body", "category_ids"]
+
+
+def test_put_book_categories_missing_book_returns_404(client):
+    response = client.put(
+        f"{BASE}/{uuid.uuid4()}/categories",
+        json={"category_ids": []},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
+def test_openapi_documents_book_relation_endpoints(client):
+    paths = client.get("/openapi.json").json()["paths"]
+
+    for path in (
+        "/api/v1/books/{book_id}/authors",
+        "/api/v1/books/{book_id}/categories",
+    ):
+        assert path in paths
+        assert "put" in paths[path]
+        assert "404" in paths[path]["put"]["responses"]
+        assert "422" in paths[path]["put"]["responses"]
