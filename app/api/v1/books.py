@@ -1,17 +1,28 @@
 import uuid
+from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.dependencies import DbSession
+from app.api.filtering import SearchQuery
 from app.api.pagination import Page, Pagination
+from app.api.sorting import sort_dependency
 from app.core.errors import ErrorResponse
 from app.core.pagination import PageParams
 from app.models.book import Book
+from app.repositories.book import SORTABLE
 from app.schemas.book import BookCreate, BookRead, BookUpdate
 from app.services.book import BookService
 
 router = APIRouter(prefix="/books", tags=["books"])
+_sort = sort_dependency(
+    SORTABLE,
+    default="title",
+    tiebreaker=Book.id,
+    nulls_last=True,
+)
 
 
 def get_book_service(session: DbSession) -> BookService:
@@ -19,6 +30,7 @@ def get_book_service(session: DbSession) -> BookService:
 
 
 BookServiceDep = Annotated[BookService, Depends(get_book_service)]
+SortOrders = Annotated[list[ColumnElement[Any]], Depends(_sort)]
 
 _NOT_FOUND: dict[int | str, dict[str, Any]] = {
     status.HTTP_404_NOT_FOUND: {
@@ -62,13 +74,48 @@ def create_book(
     "",
     response_model=Page[BookRead],
     summary="List books",
-    description="List books with pagination. Relations are eager-loaded.",
+    description=(
+        "List books with search, filters, sorting, and pagination. "
+        "Relations are eager-loaded."
+    ),
 )
 def list_books(
     service: BookServiceDep,
     params: Pagination,
+    orders: SortOrders,
+    q: SearchQuery = None,
+    publisher_id: uuid.UUID | None = None,
+    author_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    publication_year_min: Annotated[
+        int | None,
+        Query(ge=0, le=9999, description="Earliest publication year"),
+    ] = None,
+    publication_year_max: Annotated[
+        int | None,
+        Query(ge=0, le=9999, description="Latest publication year"),
+    ] = None,
+    price_min: Annotated[
+        Decimal | None,
+        Query(ge=0, description="Minimum price"),
+    ] = None,
+    price_max: Annotated[
+        Decimal | None,
+        Query(ge=0, description="Maximum price"),
+    ] = None,
 ) -> Page[BookRead]:
-    result = service.list(page=PageParams(page=params.page, size=params.size))
+    result = service.list(
+        q=q,
+        publisher_id=publisher_id,
+        author_id=author_id,
+        category_id=category_id,
+        publication_year_min=publication_year_min,
+        publication_year_max=publication_year_max,
+        price_min=price_min,
+        price_max=price_max,
+        order_by=orders,
+        page=PageParams(page=params.page, size=params.size),
+    )
     return Page[BookRead].create(
         [BookRead.model_validate(book) for book in result.items],
         result.total,

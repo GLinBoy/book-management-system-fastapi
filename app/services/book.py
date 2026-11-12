@@ -1,9 +1,11 @@
 import builtins
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.pagination import Page, PageParams
@@ -12,9 +14,10 @@ from app.models.book import Book
 from app.models.category import Category
 from app.models.publisher import Publisher
 from app.repositories.author import AuthorRepository
-from app.repositories.book import EAGER_OPTIONS, BookRepository
+from app.repositories.book import EAGER_OPTIONS, SEARCH_COLUMNS, BookRepository
 from app.repositories.category import CategoryRepository
 from app.repositories.publisher import PublisherRepository
+from app.repositories.query import eq_filter, range_filters, search_filter
 from app.schemas.book import BookCreate, BookUpdate
 
 Details = list[dict[str, Any]]
@@ -28,9 +31,48 @@ class BookService:
         self.authors = AuthorRepository(session)
         self.categories = CategoryRepository(session)
 
-    def list(self, *, page: PageParams | None = None) -> Page[Book]:
+    def list(
+        self,
+        *,
+        q: str | None = None,
+        publisher_id: uuid.UUID | None = None,
+        author_id: uuid.UUID | None = None,
+        category_id: uuid.UUID | None = None,
+        publication_year_min: int | None = None,
+        publication_year_max: int | None = None,
+        price_min: Decimal | None = None,
+        price_max: Decimal | None = None,
+        order_by: Sequence[ColumnElement[Any]] = (),
+        page: PageParams | None = None,
+    ) -> Page[Book]:
+        filters: list[ColumnElement[bool]] = []
+
+        search = search_filter(q, SEARCH_COLUMNS)
+        if search is not None:
+            filters.append(search)
+
+        publisher_filter = eq_filter(Book.publisher_id, publisher_id)
+        if publisher_filter is not None:
+            filters.append(publisher_filter)
+
+        if author_id is not None:
+            filters.append(Book.authors.any(Author.id == author_id))
+
+        if category_id is not None:
+            filters.append(Book.categories.any(Category.id == category_id))
+
+        filters.extend(
+            range_filters(
+                Book.publication_year,
+                publication_year_min,
+                publication_year_max,
+            )
+        )
+        filters.extend(range_filters(Book.price, price_min, price_max))
+
         return self.repository.list(
-            order_by=[Book.title.asc(), Book.id.asc()],
+            filters=filters,
+            order_by=order_by or [Book.title.asc(), Book.id.asc()],
             page=page,
             options=EAGER_OPTIONS,
         )

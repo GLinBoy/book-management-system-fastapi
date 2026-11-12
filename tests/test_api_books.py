@@ -20,6 +20,65 @@ def seed_relations(session):
     return publisher, authors, categories
 
 
+def seed_catalog(session):
+    publisher_a = Publisher(name="Ace")
+    publisher_b = Publisher(name="Tor")
+    author_a = Author(name="Frank Herbert")
+    author_b = Author(name="Ursula K. Le Guin")
+    category_a = Category(name="Science Fiction")
+    category_b = Category(name="Fantasy")
+    session.add_all(
+        [
+            Book(
+                title="Dune",
+                isbn="9780441013593",
+                description="Desert planet",
+                publication_year=1965,
+                price=Decimal("9.99"),
+                publisher=publisher_a,
+                authors=[author_a],
+                categories=[category_a],
+            ),
+            Book(
+                title="Dune Messiah",
+                isbn="9780593098233",
+                description="Sequel to Dune",
+                publication_year=1969,
+                price=Decimal("12.50"),
+                publisher=publisher_a,
+                authors=[author_a],
+                categories=[category_a],
+            ),
+            Book(
+                title="A Wizard of Earthsea",
+                isbn="9780547773742",
+                description="Sea and magic",
+                publication_year=1968,
+                price=Decimal("7.99"),
+                publisher=publisher_b,
+                authors=[author_b],
+                categories=[category_b],
+            ),
+            Book(
+                title="The Left Hand of Darkness",
+                isbn="9780441478125",
+                description="Ice planet",
+                publication_year=1969,
+                price=None,
+                publisher=publisher_b,
+                authors=[author_b],
+                categories=[category_b],
+            ),
+        ]
+    )
+    session.commit()
+    return publisher_a, publisher_b, author_a, author_b, category_a, category_b
+
+
+def titles(response):
+    return [book["title"] for book in response.json()["items"]]
+
+
 def book_payload(publisher, authors, categories, **overrides):
     payload = {
         "title": "Dune",
@@ -365,3 +424,168 @@ def test_openapi_documents_book_endpoints(client):
     assert "422" in paths["/api/v1/books"]["post"]["responses"]
     assert "404" in paths["/api/v1/books/{book_id}"]["get"]["responses"]
     assert "409" in paths["/api/v1/books/{book_id}"]["patch"]["responses"]
+
+
+def test_list_search_matches_title(client, session):
+    seed_catalog(session)
+
+    assert titles(client.get(BASE, params={"q": "dune"})) == [
+        "Dune",
+        "Dune Messiah",
+    ]
+
+
+def test_list_search_matches_isbn(client, session):
+    seed_catalog(session)
+
+    assert titles(client.get(BASE, params={"q": "9780593098233"})) == ["Dune Messiah"]
+
+
+def test_list_search_matches_description(client, session):
+    seed_catalog(session)
+
+    assert titles(client.get(BASE, params={"q": "planet"})) == [
+        "Dune",
+        "The Left Hand of Darkness",
+    ]
+
+
+def test_list_filters_by_publisher(client, session):
+    publisher_a, *_ = seed_catalog(session)
+
+    body = client.get(BASE, params={"publisher_id": str(publisher_a.id)}).json()
+
+    assert [book["title"] for book in body["items"]] == ["Dune", "Dune Messiah"]
+
+
+def test_list_filters_by_author(client, session):
+    _, _, _, author_b, _, _ = seed_catalog(session)
+
+    body = client.get(BASE, params={"author_id": str(author_b.id)}).json()
+
+    assert [book["title"] for book in body["items"]] == [
+        "A Wizard of Earthsea",
+        "The Left Hand of Darkness",
+    ]
+
+
+def test_list_filters_by_category(client, session):
+    _, _, _, _, category_a, _ = seed_catalog(session)
+
+    body = client.get(BASE, params={"category_id": str(category_a.id)}).json()
+
+    assert [book["title"] for book in body["items"]] == ["Dune", "Dune Messiah"]
+
+
+def test_list_filters_by_publication_year_range(client, session):
+    seed_catalog(session)
+
+    body = client.get(
+        BASE,
+        params={"publication_year_min": 1968, "publication_year_max": 1969},
+    ).json()
+
+    assert [book["title"] for book in body["items"]] == [
+        "A Wizard of Earthsea",
+        "Dune Messiah",
+        "The Left Hand of Darkness",
+    ]
+
+
+def test_list_filters_by_price_range(client, session):
+    seed_catalog(session)
+
+    body = client.get(
+        BASE,
+        params={"price_min": "8.00", "price_max": "13.00"},
+    ).json()
+
+    assert [book["title"] for book in body["items"]] == ["Dune", "Dune Messiah"]
+
+
+def test_list_price_filter_excludes_null_prices(client, session):
+    seed_catalog(session)
+
+    body = client.get(BASE, params={"price_min": "0.00"}).json()
+
+    assert "The Left Hand of Darkness" not in [book["title"] for book in body["items"]]
+
+
+def test_list_sort_by_price_puts_nulls_last(client, session):
+    seed_catalog(session)
+
+    assert titles(client.get(BASE, params={"sort": "price"})) == [
+        "A Wizard of Earthsea",
+        "Dune",
+        "Dune Messiah",
+        "The Left Hand of Darkness",
+    ]
+
+
+def test_list_sort_by_price_descending_puts_nulls_last(client, session):
+    seed_catalog(session)
+
+    assert titles(client.get(BASE, params={"sort": "-price"})) == [
+        "Dune Messiah",
+        "Dune",
+        "A Wizard of Earthsea",
+        "The Left Hand of Darkness",
+    ]
+
+
+def test_list_sort_by_publication_year_with_title_tiebreak(client, session):
+    seed_catalog(session)
+
+    body = client.get(
+        BASE,
+        params={"sort": "-publication_year,title"},
+    ).json()
+
+    assert [book["title"] for book in body["items"]] == [
+        "Dune Messiah",
+        "The Left Hand of Darkness",
+        "A Wizard of Earthsea",
+        "Dune",
+    ]
+
+
+def test_list_combines_search_filters_sort_and_pagination(client, session):
+    publisher_a, *_ = seed_catalog(session)
+
+    body = client.get(
+        BASE,
+        params={
+            "q": "dune",
+            "publisher_id": str(publisher_a.id),
+            "publication_year_min": 1966,
+            "sort": "-title",
+            "size": 1,
+        },
+    ).json()
+
+    assert body["total"] == 1
+    assert body["pages"] == 1
+    assert body["items"][0]["title"] == "Dune Messiah"
+
+
+def test_list_unknown_sort_returns_422(client):
+    response = client.get(BASE, params={"sort": "bogus"})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"][0]["loc"] == ["query", "sort"]
+
+
+def test_list_rejects_negative_price_filter(client):
+    response = client.get(BASE, params={"price_min": "-0.01"})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+def test_list_unknown_author_filter_returns_empty_page(client):
+    body = client.get(BASE, params={"author_id": str(uuid.uuid4())}).json()
+
+    assert body["total"] == 0
+    assert body["items"] == []

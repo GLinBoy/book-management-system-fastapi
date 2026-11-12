@@ -9,7 +9,12 @@ from sqlalchemy.sql.elements import ColumnElement
 SortAllowlist = Mapping[str, InstrumentedAttribute[Any]]
 
 
-def parse_sort(raw: str, allowed: SortAllowlist) -> list[ColumnElement[Any]]:
+def parse_sort(
+    raw: str,
+    allowed: SortAllowlist,
+    *,
+    nulls_last: bool = False,
+) -> list[ColumnElement[Any]]:
     orders: list[ColumnElement[Any]] = []
     seen: set[str] = set()
     for token in (part.strip() for part in raw.split(",")):
@@ -35,7 +40,10 @@ def parse_sort(raw: str, allowed: SortAllowlist) -> list[ColumnElement[Any]]:
             continue
         seen.add(name)
         column = allowed[name]
-        orders.append(column.desc() if descending else column.asc())
+        order = column.desc() if descending else column.asc()
+        if nulls_last:
+            order = order.nulls_last()
+        orders.append(order)
     return orders
 
 
@@ -44,6 +52,7 @@ def sort_dependency(
     *,
     default: str,
     tiebreaker: InstrumentedAttribute[Any] | None = None,
+    nulls_last: bool = False,
 ) -> Callable[..., list[ColumnElement[Any]]]:
     description = (
         "Comma-separated fields; prefix with - for descending. "
@@ -53,7 +62,11 @@ def sort_dependency(
     def dependency(
         sort: Annotated[str | None, Query(description=description)] = None,
     ) -> list[ColumnElement[Any]]:
-        orders = parse_sort(sort or default, allowed)
+        orders = parse_sort(
+            sort or default,
+            allowed,
+            nulls_last=nulls_last,
+        )
         if tiebreaker is not None:
             orders.append(tiebreaker.asc())
         return orders
