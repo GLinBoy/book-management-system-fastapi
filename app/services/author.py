@@ -8,6 +8,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import Page, PageParams
 from app.models.author import Author
+from app.models.book import Book
 from app.repositories.author import SEARCH_COLUMNS, AuthorRepository
 from app.repositories.query import range_filters, search_filter
 from app.schemas.author import AuthorCreate, AuthorUpdate
@@ -43,6 +44,19 @@ class AuthorService:
         return self.repository.list(
             filters=filters,
             order_by=order_by,
+            page=page,
+        )
+
+    def list_books(
+        self,
+        author_id: uuid.UUID,
+        *,
+        page: PageParams | None = None,
+    ) -> Page[Book]:
+        self.get(author_id)
+        return self.repository.list_books(
+            author_id,
+            order_by=[Book.title.asc(), Book.id.asc()],
             page=page,
         )
 
