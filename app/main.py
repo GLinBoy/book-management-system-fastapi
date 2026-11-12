@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
             {"name": "publishers", "description": "Manage publishers."},
             {"name": "authors", "description": "Manage authors."},
             {"name": "categories", "description": "Manage categories."},
+            {"name": "books", "description": "Manage books."},
         ],
     )
     application.add_middleware(RequestIdMiddleware)

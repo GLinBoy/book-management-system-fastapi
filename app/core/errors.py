@@ -21,8 +21,13 @@ class AppError(Exception):
     code: str = "internal_error"
     default_message: str = "Internal server error"
 
-    def __init__(self, message: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str | None = None,
+        details: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.message = message or self.default_message
+        self.details = details
         super().__init__(self.message)
 
 
@@ -36,6 +41,12 @@ class ConflictError(AppError):
     status_code = HTTPStatus.CONFLICT
     code = "conflict"
     default_message = "Resource conflicts with existing data"
+
+
+class UnprocessableEntityError(AppError):
+    status_code = HTTPStatus.UNPROCESSABLE_CONTENT
+    code = "unprocessable_entity"
+    default_message = "Request cannot be processed"
 
 
 def error_response(
@@ -63,7 +74,12 @@ def _status_code_name(status_code: int) -> str:
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
-        return error_response(exc.status_code, exc.code, exc.message)
+        return error_response(
+            exc.status_code,
+            exc.code,
+            exc.message,
+            details=exc.details,
+        )
 
     @app.exception_handler(IntegrityError)
     async def handle_integrity_error(
