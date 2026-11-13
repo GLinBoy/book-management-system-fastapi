@@ -8,6 +8,7 @@ from app.core.config import AppEnv, Settings
 def clean_env(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SEED_ON_STARTUP", raising=False)
 
 
 def make() -> Settings:
@@ -42,3 +43,12 @@ def test_invalid_env_rejected(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     with pytest.raises(ValidationError):
         make()
+
+
+def test_seed_on_startup_defaults_off():
+    assert make().seed_on_startup is False
+
+
+def test_seed_on_startup_from_env(monkeypatch):
+    monkeypatch.setenv("SEED_ON_STARTUP", "true")
+    assert make().seed_on_startup is True
