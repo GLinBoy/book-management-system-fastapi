@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import Settings, get_settings
 
@@ -13,7 +14,16 @@ def create_db_engine(settings: Settings) -> Engine:
     url = make_url(settings.effective_database_url)
 
     if url.get_backend_name() == "sqlite":
-        engine = create_engine(url, connect_args={"check_same_thread": False})
+        if url.database in (None, "", ":memory:"):
+            # In-memory SQLite lives in a single connection, so share that
+            # connection across sessions and threads.
+            engine = create_engine(
+                url,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        else:
+            engine = create_engine(url, connect_args={"check_same_thread": False})
 
         @event.listens_for(engine, "connect")
         def _enable_foreign_keys(dbapi_connection: Any, _record: Any) -> None:

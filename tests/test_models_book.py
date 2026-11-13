@@ -5,18 +5,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
-from app.core.database import create_db_engine
-from app.models import Base, Book, Publisher
-
-
-@pytest.fixture
-def engine(tmp_path):
-    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'b.db'}")
-    engine = create_db_engine(settings)
-    Base.metadata.create_all(engine)
-    yield engine
-    engine.dispose()
+from app.models import Book, Publisher
 
 
 def test_columns_and_indexes(engine):

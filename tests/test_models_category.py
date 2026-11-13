@@ -1,17 +1,9 @@
 import pytest
-from sqlalchemy import Text, create_engine, inspect
+from sqlalchemy import Text, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Base, Category
-
-
-@pytest.fixture
-def engine(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'models.db'}")
-    Base.metadata.create_all(engine)
-    yield engine
-    engine.dispose()
+from app.models import Category
 
 
 def test_table_and_columns(engine):

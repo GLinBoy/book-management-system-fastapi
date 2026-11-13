@@ -3,7 +3,9 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Author, Book, Category, Publisher
+from app.core.config import Settings
+from app.core.database import create_db_engine
+from app.models import Author, Base, Book, Category, Publisher
 from app.models.associations import book_authors, book_categories
 from app.seed import SeedData, SeedSummary, generate_seed_data, seed_database
 
@@ -104,11 +106,22 @@ def test_seed_database_inserts_data(session):
     assert _count(session, Book) == 300
 
 
-def test_seed_database_commits_changes(engine, session):
-    seed_database(session)
+def test_seed_database_commits_changes(tmp_path):
+    # A file-backed database is needed here: the shared in-memory fixture
+    # cannot expose committed changes to a second connection.
+    settings = Settings(
+        _env_file=None, database_url=f"sqlite:///{tmp_path / 'commit.db'}"
+    )
+    engine = create_db_engine(settings)
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as session:
+            seed_database(session)
 
-    with Session(engine) as other:
-        assert other.scalar(select(func.count()).select_from(Book)) == 300
+        with Session(engine) as other:
+            assert other.scalar(select(func.count()).select_from(Book)) == 300
+    finally:
+        engine.dispose()
 
 
 def test_seeded_books_have_links(session):

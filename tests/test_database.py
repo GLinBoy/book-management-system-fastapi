@@ -1,6 +1,9 @@
+import threading
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.core import database
 from app.core.config import Settings
@@ -25,6 +28,36 @@ def test_postgres_uses_pool_settings():
     )
     engine = create_db_engine(settings)
     assert engine.pool.size() == 7
+
+
+def test_memory_sqlite_uses_static_pool():
+    engine = create_db_engine(Settings(_env_file=None, database_url="sqlite://"))
+    try:
+        assert isinstance(engine.pool, StaticPool)
+    finally:
+        engine.dispose()
+
+
+def test_memory_sqlite_is_shared_across_threads():
+    engine = create_db_engine(Settings(_env_file=None, database_url="sqlite://"))
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE TABLE t (id INTEGER)"))
+            conn.execute(text("INSERT INTO t VALUES (1)"))
+
+        counts: list[int] = []
+
+        def read_count() -> None:
+            with engine.connect() as conn:
+                counts.append(conn.execute(text("SELECT COUNT(*) FROM t")).scalar_one())
+
+        thread = threading.Thread(target=read_count)
+        thread.start()
+        thread.join()
+
+        assert counts == [1]
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture
