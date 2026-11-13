@@ -163,15 +163,17 @@ uv run ruff format .
 
 ### Make shortcuts
 
-| Command          | Action                       |
-| ---------------- | ---------------------------- |
-| `make run`       | Start the development server |
-| `make test`      | Run the tests                |
-| `make lint`      | Run Ruff checks              |
-| `make typecheck` | Run mypy                     |
-| `make check`     | Lint, type-check, and test   |
+| Command          | Action                             |
+| ---------------- | ---------------------------------- |
+| `make run`       | Start the development server       |
+| `make test`      | Run the tests                      |
+| `make lint`      | Run Ruff checks                    |
+| `make typecheck` | Run mypy                           |
+| `make check`     | Lint, type-check, and test         |
+| `make migrate`   | Apply database migrations          |
+| `make seed`      | Load deterministic development data |
 
-The `migrate` and `seed` targets exist but depend on work that is not implemented yet.
+See [Migrations and seed data](#migrations-and-seed-data) for details.
 
 ## Dependency management
 
@@ -236,21 +238,22 @@ Relationships:
 
 The [original system design](https://app.notion.com/p/glinboy/book-management-system-2eb5d93da3318090b159e56dc6c73c22?source=copy_link) uses integer IDs. The implementation roadmap changes entity primary keys and their corresponding foreign keys to UUID v7. Access to the Notion page may require permission.
 
-## Migrations and seed data — future steps
+## Migrations and seed data
 
-After Alembic configuration and migration files exist:
+Apply migrations and load deterministic development data:
 
 ```bash
 uv run alembic upgrade head
-```
-
-After the seed module is implemented:
-
-```bash
 uv run python -m app.seed
 ```
 
-Development seeding must not run automatically in production.
+Seeding is idempotent: it skips when publishers, authors, categories, or books already exist. To replace existing data:
+
+```bash
+uv run python -m app.seed --reset
+```
+
+The data set is generated from a fixed random seed, so every run produces the same values. Pass `--seed N` to generate a different data set. Development seeding must not run automatically in production.
 
 ## Clean-checkout verification
 

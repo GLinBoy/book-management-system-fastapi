@@ -19,8 +19,7 @@ typecheck:
 check: lint typecheck test
 
 seed:
-	@echo "seed: not implemented yet (no seed script)"
-	@exit 1
+	uv run python -m app.seed
 
 migrate:
 	uv run alembic upgrade head
