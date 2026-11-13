@@ -5,14 +5,11 @@ from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.pagination import Page, Pagination, paginate
 from app.api.sorting import parse_sort, sort_dependency
-from app.core.config import Settings
-from app.core.database import create_db_engine
-from app.models import Base, Publisher
+from app.models import Publisher
 
 ALLOWED = {"name": Publisher.name, "country": Publisher.country}
 
@@ -50,11 +47,7 @@ def test_unknown_field_raises(raw):
 
 
 @pytest.fixture
-def client(tmp_path):
-    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 's.db'}")
-    engine = create_db_engine(settings)
-    Base.metadata.create_all(engine)
-    session = Session(engine)
+def client(session):
     session.add_all(
         [
             Publisher(name="A", country="US"),
@@ -63,7 +56,7 @@ def client(tmp_path):
             Publisher(name="D", country="DE"),
         ]
     )
-    session.commit()
+    session.flush()
 
     sort = sort_dependency(ALLOWED, default="name", tiebreaker=Publisher.id)
     app = FastAPI()
@@ -77,9 +70,7 @@ def client(tmp_path):
         rows, total = paginate(session, stmt, params)
         return Page.create([r.name for r in rows], total, params)
 
-    yield TestClient(app)
-    session.close()
-    engine.dispose()
+    return TestClient(app)
 
 
 def names(response):

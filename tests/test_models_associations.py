@@ -3,25 +3,13 @@ from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
-from app.core.database import create_db_engine
 from app.models import (
     Author,
-    Base,
     Book,
     Category,
     book_authors,
     book_categories,
 )
-
-
-@pytest.fixture
-def engine(tmp_path):
-    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'a.db'}")
-    engine = create_db_engine(settings)
-    Base.metadata.create_all(engine)
-    yield engine
-    engine.dispose()
 
 
 def count(session: Session, table) -> int:

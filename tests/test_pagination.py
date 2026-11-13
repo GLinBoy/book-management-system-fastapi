@@ -2,34 +2,26 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.api.pagination import Page, Pagination, paginate
-from app.core.config import Settings
-from app.core.database import create_db_engine
-from app.models import Base, Publisher
+from app.models import Publisher
 
 
 @pytest.fixture
-def session(tmp_path):
-    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'p.db'}")
-    engine = create_db_engine(settings)
-    Base.metadata.create_all(engine)
-    with Session(engine) as s:
-        s.add_all(Publisher(name=f"P{i:02d}") for i in range(25))
-        s.commit()
-        yield s
-    engine.dispose()
+def seeded_session(session):
+    session.add_all(Publisher(name=f"P{i:02d}") for i in range(25))
+    session.flush()
+    return session
 
 
 @pytest.fixture
-def client(session):
+def client(seeded_session):
     app = FastAPI()
 
     @app.get("/publishers", response_model=Page[str])
     def list_publishers(params: Pagination):
         stmt = select(Publisher).order_by(Publisher.name)
-        rows, total = paginate(session, stmt, params)
+        rows, total = paginate(seeded_session, stmt, params)
         return Page.create([r.name for r in rows], total, params)
 
     return TestClient(app)

@@ -2,23 +2,10 @@ import uuid
 
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
-from app.core.config import Settings
-from app.core.database import create_db_engine
 from app.core.pagination import PageParams
-from app.models import Base, Category
+from app.models import Category
 from app.repositories.base import Repository
-
-
-@pytest.fixture
-def session(tmp_path):
-    settings = Settings(_env_file=None, database_url=f"sqlite:///{tmp_path / 'r.db'}")
-    engine = create_db_engine(settings)
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    engine.dispose()
 
 
 @pytest.fixture
