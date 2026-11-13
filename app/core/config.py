@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     db_pool_timeout: int = 30
     db_pool_pre_ping: bool = True
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    seed_on_startup: bool = False
 
     @model_validator(mode="after")
     def _require_database_url_in_prod(self) -> Settings:

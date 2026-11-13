@@ -253,7 +253,9 @@ Seeding is idempotent: it skips when publishers, authors, categories, or books a
 uv run python -m app.seed --reset
 ```
 
-The data set is generated from a fixed random seed, so every run produces the same values. Pass `--seed N` to generate a different data set. Development seeding must not run automatically in production.
+The data set is generated from a fixed random seed, so every run produces the same values. Pass `--seed N` to generate a different data set.
+
+Set `SEED_ON_STARTUP=true` to seed automatically when the application starts. Startup seeding is guarded: it never runs when `APP_ENV=prod`.
 
 ## Clean-checkout verification
 
