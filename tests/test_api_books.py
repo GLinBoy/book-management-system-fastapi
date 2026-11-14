@@ -2,8 +2,16 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func, select
 
-from app.models import Author, Book, Category, Publisher
+from app.models import (
+    Author,
+    Book,
+    Category,
+    Publisher,
+    book_authors,
+    book_categories,
+)
 
 BASE = "/api/v1/books"
 
@@ -141,6 +149,51 @@ def test_create_rejects_negative_price(client):
     assert response.json()["code"] == "validation_error"
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"title": "x" * 256},
+        {"title": "Dune", "publication_year": -1},
+        {"title": "Dune", "publication_year": 10000},
+        {"title": "Dune", "price": "9.999"},
+        {"title": "Dune", "price": "123456789.00"},
+        {"title": "Dune", "isbn": 1234567890},
+    ],
+)
+def test_create_rejects_invalid_field_values(client, payload):
+    response = client.post(BASE, json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    ("raw", "normalized"),
+    [
+        ("0-8044-2957-X", "080442957X"),
+        ("0 8044 2957 x", "080442957X"),
+        ("978 0 441 01359 3", "9780441013593"),
+    ],
+)
+def test_create_normalizes_isbn(client, raw, normalized):
+    response = client.post(BASE, json={"title": "Dune", "isbn": raw})
+
+    assert response.status_code == 201
+    assert response.json()["isbn"] == normalized
+
+
+def test_create_duplicate_isbn_after_normalization_returns_409(client):
+    client.post(BASE, json={"title": "Dune", "isbn": "9780441013593"})
+
+    response = client.post(
+        BASE,
+        json={"title": "Dune Messiah", "isbn": "978-0-441-01359-3"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "conflict"
+
+
 def test_create_rejects_missing_referenced_entities(client):
     missing_publisher = uuid.uuid4()
     missing_author = uuid.uuid4()
@@ -202,6 +255,27 @@ def test_get_missing_book_returns_404(client):
 
 def test_get_invalid_uuid_returns_422(client):
     response = client.get(f"{BASE}/not-a-uuid")
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize("method", ["put", "patch", "delete"])
+def test_update_delete_invalid_uuid_returns_422(client, method):
+    kwargs = {} if method == "delete" else {"json": {"title": "X"}}
+
+    response = client.request(method.upper(), f"{BASE}/not-a-uuid", **kwargs)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    ("path", "field"),
+    [("authors", "author_ids"), ("categories", "category_ids")],
+)
+def test_relation_endpoints_invalid_uuid_returns_422(client, path, field):
+    response = client.put(f"{BASE}/not-a-uuid/{path}", json={field: []})
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
@@ -389,11 +463,67 @@ def test_patch_duplicate_isbn_returns_409(client):
     assert response.json()["code"] == "conflict"
 
 
+def test_patch_with_empty_payload_keeps_fields(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Dune"
+    assert body["publisher"]["name"] == "Ace"
+    assert len(body["authors"]) == 2
+    assert len(body["categories"]) == 2
+
+
+@pytest.mark.parametrize("field", ["author_ids", "category_ids"])
+def test_patch_rejects_null_relation_lists(client, session, field):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={field: None})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_update_missing_book_returns_404(client):
     missing = uuid.uuid4()
 
     assert client.put(f"{BASE}/{missing}", json={"title": "X"}).status_code == 404
     assert client.patch(f"{BASE}/{missing}", json={"title": "X"}).status_code == 404
+
+
+def test_put_rejects_missing_referenced_entities(client):
+    created = client.post(BASE, json={"title": "Dune"}).json()
+
+    response = client.put(
+        f"{BASE}/{created['id']}",
+        json={"title": "Dune", "author_ids": [str(uuid.uuid4())]},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "unprocessable_entity"
+    assert body["details"][0]["loc"] == ["body", "author_ids"]
+
+
+def test_put_duplicate_isbn_returns_409(client):
+    first = client.post(BASE, json={"title": "Dune", "isbn": "9780441013593"}).json()
+    second = client.post(BASE, json={"title": "Dune Messiah"}).json()
+
+    response = client.put(
+        f"{BASE}/{second['id']}",
+        json={"title": "Dune Messiah", "isbn": first["isbn"]},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "conflict"
 
 
 def test_delete_book(client, session):
@@ -411,6 +541,22 @@ def test_delete_book(client, session):
 
 def test_delete_missing_book_returns_404(client):
     assert client.delete(f"{BASE}/{uuid.uuid4()}").status_code == 404
+
+
+def test_delete_book_keeps_related_entities(client, session):
+    publisher, authors, categories = seed_relations(session)
+    created = client.post(
+        BASE, json=book_payload(publisher, authors, categories)
+    ).json()
+
+    response = client.delete(f"{BASE}/{created['id']}")
+
+    assert response.status_code == 204
+    assert session.get(Publisher, publisher.id) is not None
+    assert session.get(Author, authors[0].id) is not None
+    assert session.get(Category, categories[0].id) is not None
+    assert session.scalar(select(func.count()).select_from(book_authors)) == 0
+    assert session.scalar(select(func.count()).select_from(book_categories)) == 0
 
 
 def test_openapi_documents_book_endpoints(client):
@@ -584,8 +730,27 @@ def test_list_rejects_negative_price_filter(client):
     assert response.json()["code"] == "validation_error"
 
 
-def test_list_unknown_author_filter_returns_empty_page(client):
-    body = client.get(BASE, params={"author_id": str(uuid.uuid4())}).json()
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"q": "x" * 101}, "q"),
+        ({"publication_year_min": -1}, "publication_year_min"),
+        ({"publication_year_max": 10000}, "publication_year_max"),
+        ({"price_max": "-0.01"}, "price_max"),
+    ],
+)
+def test_list_rejects_invalid_query_params(client, params, field):
+    response = client.get(BASE, params=params)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"][0]["loc"] == ["query", field]
+
+
+@pytest.mark.parametrize("field", ["publisher_id", "author_id", "category_id"])
+def test_list_unknown_relation_filter_returns_empty_page(client, field):
+    body = client.get(BASE, params={field: str(uuid.uuid4())}).json()
 
     assert body["total"] == 0
     assert body["items"] == []
