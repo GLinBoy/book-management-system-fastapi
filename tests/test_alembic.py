@@ -1,16 +1,26 @@
+import os
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from app.core.config import get_settings
 from app.models import Base
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_TABLES = set(Base.metadata.tables)
+
+POSTGRES_TEST_URL = os.environ.get("TEST_DATABASE_URL")
+if POSTGRES_TEST_URL and not POSTGRES_TEST_URL.startswith("postgresql"):
+    POSTGRES_TEST_URL = None
+
+requires_postgres = pytest.mark.skipif(
+    POSTGRES_TEST_URL is None,
+    reason="TEST_DATABASE_URL is not set to a PostgreSQL URL",
+)
 
 
 def _config() -> Config:
@@ -46,6 +56,32 @@ def test_initial_migration_round_trip(
     get_settings.cache_clear()
     engine = create_engine(url)
     try:
+        command.upgrade(_config(), "head")
+        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+
+        command.downgrade(_config(), "base")
+        assert EXPECTED_TABLES.isdisjoint(inspect(engine).get_table_names())
+
+        command.upgrade(_config(), "head")
+        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+@requires_postgres
+def test_postgres_migration_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert POSTGRES_TEST_URL is not None
+    monkeypatch.setenv("DATABASE_URL", POSTGRES_TEST_URL)
+    monkeypatch.setenv("APP_ENV", "dev")
+    get_settings.cache_clear()
+    engine = create_engine(POSTGRES_TEST_URL)
+    try:
+        # Start clean so reruns do not depend on leftovers from earlier runs.
+        Base.metadata.drop_all(engine)
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+
         command.upgrade(_config(), "head")
         assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
 

@@ -127,7 +127,7 @@ Settings are defined in `app/core/config.py` with pydantic-settings. The `APP_EN
 | Profile         | Database   | Behavior                                                                                     |
 | --------------- | ---------- | -------------------------------------------------------------------------------------------- |
 | `dev` (default) | SQLite     | Local development; default URL `sqlite:///./dev.db`                                          |
-| `test`          | SQLite     | Automated tests; default URL `sqlite:///./test.db`. PostgreSQL integration tests are planned |
+| `test`          | SQLite     | Automated tests; default URL `sqlite:///./test.db`. Set `TEST_DATABASE_URL` to run against PostgreSQL |
 | `prod`          | PostgreSQL | Requires `DATABASE_URL`; startup fails if it is missing                                      |
 
 `DATABASE_URL` overrides the default database in any profile. Use the `postgresql+psycopg://` scheme for PostgreSQL:
@@ -160,6 +160,16 @@ To apply formatting during development:
 ```bash
 uv run ruff format .
 ```
+
+### PostgreSQL integration run
+
+Tests use in-memory SQLite by default. To run the same suite against PostgreSQL, point `TEST_DATABASE_URL` at a dedicated test database:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/books_test uv run pytest
+```
+
+The shared fixtures recreate the schema for every test, so the target database is wiped. The PostgreSQL migration upgrade/downgrade round-trip test is skipped unless `TEST_DATABASE_URL` is set to a PostgreSQL URL.
 
 ### Make shortcuts
 
