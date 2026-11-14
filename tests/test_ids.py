@@ -1,5 +1,8 @@
+import time
 import uuid
+from collections.abc import Iterator
 
+import pytest
 from sqlalchemy import Engine, String, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
@@ -16,16 +19,19 @@ class _Thing(UUIDPrimaryKeyMixin, _Base):
     name: Mapped[str] = mapped_column(String(50))
 
 
-def _sqlite_engine() -> Engine:
+@pytest.fixture
+def thing_engine() -> Iterator[Engine]:
     engine = create_engine("sqlite://")
     _Base.metadata.create_all(engine)
-    return engine
+    yield engine
+    engine.dispose()
 
 
-def test_new_uuid7_has_version_7() -> None:
+def test_new_uuid7_has_version_and_variant() -> None:
     value = new_uuid7()
     assert isinstance(value, uuid.UUID)
     assert value.version == 7
+    assert value.variant == uuid.RFC_4122
 
 
 def test_new_uuid7_is_time_ordered() -> None:
@@ -35,21 +41,29 @@ def test_new_uuid7_is_time_ordered() -> None:
     assert len(set(ids)) == len(ids)
 
 
-def test_mixin_generates_id_and_roundtrips_on_sqlite() -> None:
-    engine = _sqlite_engine()
-    with Session(engine) as session:
+def test_new_uuid7_increases_across_milliseconds() -> None:
+    first = new_uuid7()
+    time.sleep(0.002)
+    second = new_uuid7()
+
+    assert (second.int >> 80) > (first.int >> 80)
+    assert second.int > first.int
+
+
+def test_mixin_generates_id_and_roundtrips_on_sqlite(thing_engine: Engine) -> None:
+    with Session(thing_engine) as session:
         thing = _Thing(name="a")
         session.add(thing)
         session.commit()
         generated = thing.id
         assert generated.version == 7
 
-    with Session(engine) as session:
+    with Session(thing_engine) as session:
         loaded = session.get(_Thing, generated)
         assert loaded is not None
         assert loaded.id == generated
 
-    with engine.connect() as conn:
+    with thing_engine.connect() as conn:
         raw = conn.execute(text("SELECT id FROM thing")).scalar_one()
     assert raw == generated.hex  # stored as 32 hex chars
     assert len(raw) == 32
