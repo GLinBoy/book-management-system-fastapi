@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -10,12 +11,25 @@ from app.core.database import create_db_engine, get_db
 from app.main import create_app
 from app.models import Base
 
+DEFAULT_TEST_DATABASE_URL = "sqlite://"
+
+
+def _database_url() -> str:
+    """Database for the shared fixtures; TEST_DATABASE_URL switches dialect."""
+    return os.environ.get("TEST_DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
+
 
 @pytest.fixture
 def engine() -> Iterator[Engine]:
-    """In-memory SQLite engine shared by every connection in a test."""
-    settings = Settings(_env_file=None, database_url="sqlite://")
+    """Database engine shared by every connection in a test.
+
+    In-memory SQLite by default. Set TEST_DATABASE_URL to run the suite
+    against another database, such as PostgreSQL. The schema is recreated
+    for every test so the target database must be dedicated to testing.
+    """
+    settings = Settings(_env_file=None, database_url=_database_url())
     engine = create_db_engine(settings)
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()
