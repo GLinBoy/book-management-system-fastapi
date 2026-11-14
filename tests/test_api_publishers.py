@@ -48,6 +48,7 @@ def test_create_strips_and_applies_defaults(client):
         {},
         {"name": ""},
         {"name": "   "},
+        {"name": "x" * 256},
         {"name": "Ace", "country": "x" * 101},
         {"name": "Ace", "established_year": -1},
         {"name": "Ace", "established_year": 10000},
@@ -80,6 +81,16 @@ def test_get_missing_publisher_returns_404(client):
 
 def test_get_invalid_uuid_returns_422(client):
     response = client.get(f"{BASE}/not-a-uuid")
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize("method", ["put", "patch", "delete"])
+def test_update_delete_invalid_uuid_returns_422(client, method):
+    kwargs = {} if method == "delete" else {"json": {"name": "X"}}
+
+    response = client.request(method.upper(), f"{BASE}/not-a-uuid", **kwargs)
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
@@ -160,6 +171,24 @@ def test_list_combines_filters_sort_and_pagination(client, session):
     assert body["items"][0]["name"] == "Tor"
 
 
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"q": "x" * 101}, "q"),
+        ({"country": "x" * 101}, "country"),
+        ({"established_year_min": -1}, "established_year_min"),
+        ({"established_year_max": 10000}, "established_year_max"),
+    ],
+)
+def test_list_rejects_invalid_query_params(client, params, field):
+    response = client.get(BASE, params=params)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"][0]["loc"] == ["query", field]
+
+
 def test_put_replaces_all_fields(client):
     created = create_publisher(client).json()
 
@@ -202,6 +231,20 @@ def test_patch_can_clear_optional_fields(client):
 
     assert body["country"] is None
     assert body["established_year"] is None
+
+
+def test_patch_with_empty_payload_keeps_fields(client):
+    created = create_publisher(client).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["name"], body["country"], body["established_year"]) == (
+        "Ace",
+        "US",
+        1953,
+    )
 
 
 def test_patch_rejects_null_name(client):

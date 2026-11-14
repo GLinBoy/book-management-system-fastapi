@@ -90,6 +90,16 @@ def test_get_invalid_uuid_returns_422(client):
     assert response.json()["code"] == "validation_error"
 
 
+@pytest.mark.parametrize("method", ["put", "patch", "delete"])
+def test_update_delete_invalid_uuid_returns_422(client, method):
+    kwargs = {} if method == "delete" else {"json": {"name": "X"}}
+
+    response = client.request(method.upper(), f"{BASE}/not-a-uuid", **kwargs)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_list_is_paginated_and_sorted_by_name(client, session):
     seed(session, *(Author(name=f"A{i:02d}") for i in range(25)))
 
@@ -178,6 +188,23 @@ def test_list_combines_search_filter_sort_and_pagination(client, session):
     assert body["items"][0]["name"] == "Brian Herbert"
 
 
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"q": "x" * 101}, "q"),
+        ({"birth_year_min": -1}, "birth_year_min"),
+        ({"birth_year_max": 10000}, "birth_year_max"),
+    ],
+)
+def test_list_rejects_invalid_query_params(client, params, field):
+    response = client.get(BASE, params=params)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"][0]["loc"] == ["query", field]
+
+
 def test_put_replaces_all_fields(client):
     created = create_author(client).json()
 
@@ -220,6 +247,20 @@ def test_patch_can_clear_optional_fields(client):
 
     assert body["biography"] is None
     assert body["birth_year"] is None
+
+
+def test_patch_with_empty_payload_keeps_fields(client):
+    created = create_author(client).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["name"], body["biography"], body["birth_year"]) == (
+        "Ursula K. Le Guin",
+        "Wrote Earthsea.",
+        1929,
+    )
 
 
 def test_patch_rejects_null_name(client):
@@ -317,6 +358,13 @@ def test_list_books_for_missing_author_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["code"] == "not_found"
+
+
+def test_list_books_invalid_uuid_returns_422(client):
+    response = client.get(f"{BASE}/not-a-uuid/books")
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
 
 
 def test_list_author_books_is_empty_for_author_without_books(client):
