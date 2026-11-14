@@ -27,7 +27,7 @@ See the [README](README.md) for details and the profile explanation.
     uv run mypy app
     uv run pytest
 
-If a Makefile exists, `make check` runs the same steps.
+If a Makefile exists, `make check` runs the same steps. `uv run pytest` enforces the 95% coverage threshold; add `--no-cov` for quick targeted runs.
 
 ## Style
 

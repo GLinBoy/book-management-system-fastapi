@@ -149,10 +149,15 @@ An invalid `APP_ENV` value is rejected at startup. `.env.example` documents the 
 
 ```bash
 uv run pytest
-uv run pytest --cov=app --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy app
+```
+
+`uv run pytest` measures coverage with pytest-cov and fails below 95%. For a quick targeted run without the coverage gate, add `--no-cov`:
+
+```bash
+uv run pytest tests/test_api_books.py --no-cov
 ```
 
 To apply formatting during development:
