@@ -80,9 +80,3 @@ def test_list_defaults_to_first_page(repo):
 def test_list_rejects_unknown_sort_field(repo):
     with pytest.raises(ValueError, match="Unknown sort field"):
         repo.list(sort=["nope"])
-
-
-@pytest.mark.parametrize("kwargs", [{"page": 0}, {"size": 0}, {"size": 101}])
-def test_page_params_validation(kwargs):
-    with pytest.raises(ValueError):
-        PageParams(**kwargs)

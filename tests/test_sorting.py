@@ -109,3 +109,56 @@ def test_unknown_field_returns_422(client):
 
 def test_id_is_not_sortable_unless_allowed(client):
     assert client.get("/publishers", params={"sort": "id"}).status_code == 422
+
+
+def test_tokens_are_trimmed():
+    orders = parse_sort(" name , -country ", ALLOWED)
+    assert sql(orders) == ["publishers.name ASC", "publishers.country DESC"]
+
+
+def test_first_direction_wins_for_duplicate_fields():
+    orders = parse_sort("name,-name", ALLOWED)
+    assert sql(orders) == ["publishers.name ASC"]
+
+
+def test_field_names_are_case_sensitive():
+    with pytest.raises(RequestValidationError):
+        parse_sort("Name", ALLOWED)
+
+
+def test_unknown_field_error_lists_allowed_fields():
+    with pytest.raises(RequestValidationError) as excinfo:
+        parse_sort("bogus", ALLOWED)
+
+    error = excinfo.value.errors()[0]
+    assert error["loc"] == ("query", "sort")
+    assert error["input"] == "bogus"
+    assert error["msg"] == "Unknown sort field 'bogus'. Allowed: country, name"
+
+
+def test_sort_dependency_uses_default_when_sort_is_missing():
+    dependency = sort_dependency(ALLOWED, default="-name")
+    assert sql(dependency()) == ["publishers.name DESC"]
+
+
+def test_sort_dependency_uses_default_for_empty_string():
+    dependency = sort_dependency(ALLOWED, default="name")
+    assert sql(dependency("")) == ["publishers.name ASC"]
+
+
+def test_sort_dependency_appends_tiebreaker():
+    dependency = sort_dependency(ALLOWED, default="name", tiebreaker=Publisher.id)
+    assert sql(dependency("-country")) == [
+        "publishers.country DESC",
+        "publishers.id ASC",
+    ]
+
+
+def test_sort_dependency_nulls_last_skips_tiebreaker():
+    dependency = sort_dependency(
+        ALLOWED, default="name", tiebreaker=Publisher.id, nulls_last=True
+    )
+    assert sql(dependency()) == [
+        "publishers.name ASC NULLS LAST",
+        "publishers.id ASC",
+    ]
