@@ -70,6 +70,15 @@ def test_create_duplicate_name_returns_409(client):
     assert body["code"] == "conflict"
 
 
+def test_create_duplicate_name_after_trimming_returns_409(client):
+    create_category(client, name="History")
+
+    response = create_category(client, name="  History  ")
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "conflict"
+
+
 def test_get_category(client):
     created = create_category(client).json()
 
@@ -90,6 +99,16 @@ def test_get_missing_category_returns_404(client):
 
 def test_get_invalid_uuid_returns_422(client):
     response = client.get(f"{BASE}/not-a-uuid")
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize("method", ["put", "patch", "delete"])
+def test_update_delete_invalid_uuid_returns_422(client, method):
+    kwargs = {} if method == "delete" else {"json": {"name": "X"}}
+
+    response = client.request(method.upper(), f"{BASE}/not-a-uuid", **kwargs)
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
@@ -142,6 +161,15 @@ def test_list_unknown_sort_returns_422(client):
     body = response.json()
     assert body["code"] == "validation_error"
     assert body["details"][0]["loc"] == ["query", "sort"]
+
+
+def test_list_rejects_overlong_search(client):
+    response = client.get(BASE, params={"q": "x" * 101})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["details"][0]["loc"] == ["query", "q"]
 
 
 def test_list_combines_search_sort_and_pagination(client, session):
@@ -210,6 +238,19 @@ def test_patch_can_clear_description(client):
     assert body["description"] is None
 
 
+def test_patch_with_empty_payload_keeps_fields(client):
+    created = create_category(client).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["name"], body["description"]) == (
+        "Science Fiction",
+        "Speculative fiction.",
+    )
+
+
 def test_patch_rejects_null_name(client):
     created = create_category(client).json()
 
@@ -226,6 +267,15 @@ def test_patch_duplicate_name_returns_409(client):
 
     assert response.status_code == 409
     assert response.json()["code"] == "conflict"
+
+
+def test_rename_category_to_its_own_name_succeeds(client):
+    created = create_category(client).json()
+
+    response = client.patch(f"{BASE}/{created['id']}", json={"name": "Science Fiction"})
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Science Fiction"
 
 
 def test_update_missing_category_returns_404(client):
@@ -315,6 +365,13 @@ def test_list_books_for_missing_category_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["code"] == "not_found"
+
+
+def test_list_books_invalid_uuid_returns_422(client):
+    response = client.get(f"{BASE}/not-a-uuid/books")
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
 
 
 def test_list_category_books_is_empty_for_category_without_books(client):
