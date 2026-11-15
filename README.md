@@ -168,6 +168,20 @@ To apply formatting during development:
 uv run ruff format .
 ```
 
+### Pre-commit hooks
+
+Install the hooks once after cloning:
+
+```bash
+uv run pre-commit install
+```
+
+The hooks run Ruff (lint with fixes and formatting) and mypy in strict mode. Run them across the repository with:
+
+```bash
+uv run pre-commit run --all-files
+```
+
 ### PostgreSQL integration run
 
 Tests use in-memory SQLite by default. To run the same suite against PostgreSQL, point `TEST_DATABASE_URL` at a dedicated test database:
