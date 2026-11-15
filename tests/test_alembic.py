@@ -57,13 +57,13 @@ def test_initial_migration_round_trip(
     engine = create_engine(url)
     try:
         command.upgrade(_config(), "head")
-        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+        assert set(inspect(engine).get_table_names()) >= EXPECTED_TABLES
 
         command.downgrade(_config(), "base")
         assert EXPECTED_TABLES.isdisjoint(inspect(engine).get_table_names())
 
         command.upgrade(_config(), "head")
-        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+        assert set(inspect(engine).get_table_names()) >= EXPECTED_TABLES
     finally:
         engine.dispose()
         get_settings.cache_clear()
@@ -83,13 +83,13 @@ def test_postgres_migration_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
             conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
 
         command.upgrade(_config(), "head")
-        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+        assert set(inspect(engine).get_table_names()) >= EXPECTED_TABLES
 
         command.downgrade(_config(), "base")
         assert EXPECTED_TABLES.isdisjoint(inspect(engine).get_table_names())
 
         command.upgrade(_config(), "head")
-        assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
+        assert set(inspect(engine).get_table_names()) >= EXPECTED_TABLES
     finally:
         engine.dispose()
         get_settings.cache_clear()
