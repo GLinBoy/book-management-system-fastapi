@@ -1,7 +1,7 @@
-.PHONY: help run test lint typecheck check migrate seed
+.PHONY: help run test lint typecheck check migrate seed hooks
 
 help:
-	@echo "Targets: run test lint typecheck check migrate seed"
+	@echo "Targets: run test lint typecheck check migrate seed hooks"
 
 run:
 	uv run fastapi dev app/main.py
@@ -23,3 +23,6 @@ seed:
 
 migrate:
 	uv run alembic upgrade head
+
+hooks:
+	uv run pre-commit install

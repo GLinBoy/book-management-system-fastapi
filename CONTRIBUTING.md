@@ -8,6 +8,7 @@ sizes are welcome. Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
 2. Clone the repository and run `uv sync --locked`.
 3. Copy `.env.example` to `.env` (optional; `dev` is the default profile).
+4. Install the pre-commit hooks: `uv run pre-commit install`.
 
 See the [README](README.md) for details and the profile explanation.
 
