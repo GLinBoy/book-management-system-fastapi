@@ -160,7 +160,7 @@ uv run mypy app
 uv run pytest tests/test_api_books.py --no-cov
 ```
 
-Ruff is configured in `pyproject.toml` with the `E`, `F`, `I`, `B`, `UP`, and `SIM` rule sets for Python 3.14.
+Ruff is configured in `pyproject.toml` with the `E`, `F`, `I`, `B`, `UP`, and `SIM` rule sets for Python 3.14. `uv run mypy app` runs mypy in strict mode with the pydantic plugin; SQLAlchemy 2.x models are typed natively.
 
 To apply formatting during development:
 
