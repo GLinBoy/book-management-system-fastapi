@@ -32,7 +32,7 @@ If a Makefile exists, `make check` runs the same steps. `uv run pytest` enforces
 ## Style
 
 - Format and lint with Ruff; do not hand-format around it.
-- Add type hints to new code; mypy must pass.
+- Add type hints to new code; mypy runs in strict mode and must pass.
 - Never commit secrets, `.env`, or database files such as `dev.db`.
 - Commit `pyproject.toml` and `uv.lock` together when dependencies change.
 

@@ -1,5 +1,5 @@
 from collections.abc import Collection, Sequence
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import Select, or_
 from sqlalchemy.orm import InstrumentedAttribute
@@ -35,7 +35,7 @@ def eq_filter(
 ) -> FilterClause | None:
     if value is None:
         return None
-    return column == value
+    return cast(FilterClause, column == value)
 
 
 def range_filters(
