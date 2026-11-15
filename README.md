@@ -160,6 +160,8 @@ uv run mypy app
 uv run pytest tests/test_api_books.py --no-cov
 ```
 
+Ruff is configured in `pyproject.toml` with the `E`, `F`, `I`, `B`, `UP`, and `SIM` rule sets for Python 3.14.
+
 To apply formatting during development:
 
 ```bash
