@@ -1,0 +1,39 @@
+# Version control and editor metadata
+.git
+.github
+.gitignore
+.idea
+.vscode
+
+# Python environments and caches
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+coverage.xml
+
+# Local configuration and database files
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+
+# Local project files not needed in the image
+tests
+docs
+README.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+LICENSE
+Makefile
+.pre-commit-config.yaml
+.python-version
+docker-compose.yml
+docker-compose.override.yml
+docker/check-image.sh

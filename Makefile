@@ -1,7 +1,7 @@
-.PHONY: help run test lint typecheck check migrate seed hooks
+.PHONY: help run test lint typecheck check migrate seed hooks docker-build docker-check
 
 help:
-	@echo "Targets: run test lint typecheck check migrate seed hooks"
+	@echo "Targets: run test lint typecheck check migrate seed hooks docker-build docker-check"
 
 run:
 	uv run fastapi dev app/main.py
@@ -26,3 +26,9 @@ migrate:
 
 hooks:
 	uv run pre-commit install
+
+docker-build:
+	docker build -t book-management-system-fastapi:prod .
+
+docker-check: docker-build
+	sh docker/check-image.sh book-management-system-fastapi:prod
