@@ -1,0 +1,34 @@
+services:
+  api:
+    build:
+      target: dev
+    image: book-management-system-fastapi:dev
+    restart: "no"
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/app
+    environment:
+      APP_ENV: dev
+      SEED_ON_STARTUP: "true"
+    volumes:
+      - .:/app
+      - sqlite_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    restart: "no"
+
+volumes:
+  sqlite_data:
