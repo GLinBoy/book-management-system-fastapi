@@ -1,3 +1,8 @@
+# Production-like stack. Docker Compose also loads docker-compose.override.yml
+# by default; run this file alone to bypass the development override:
+#
+#   docker compose -f docker-compose.yml up --build
+#
 services:
   api:
     build:

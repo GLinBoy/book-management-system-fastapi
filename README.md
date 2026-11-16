@@ -147,18 +147,39 @@ An invalid `APP_ENV` value is rejected at startup. `.env.example` documents the 
 
 ## Docker
 
-A production-like Compose stack is available with `api` and `postgres`:
+Two Compose profiles are available.
+
+### Development stack
+
+`docker-compose.override.yml` is loaded automatically and provides:
+
+- source bind mount with Uvicorn `--reload`
+- development dependencies, including Faker for seeding
+- `APP_ENV=dev` and `SEED_ON_STARTUP=true`
+- SQLite or PostgreSQL selectable through `DATABASE_URL`
+- API at http://127.0.0.1:8000
 
 ```bash
-cp .env.compose.example .env
+cp .env.development.example .env
 docker compose up --build
 ```
 
-The API is served at http://127.0.0.1:8000. The `api` service runs with `APP_ENV=prod`; `DATABASE_URL` and the PostgreSQL credentials come from `.env`. Inside Compose, use the service name `postgres` as the database host.
+The default `.env.development.example` uses SQLite in the `sqlite_data` volume. To use PostgreSQL, switch `DATABASE_URL` to the commented `postgresql+psycopg://...` value. The `postgres` service starts in both modes; it is unused when SQLite is selected. Inspect it with `docker compose exec postgres psql -U books -d books`.
 
-The API container runs `alembic upgrade head` before starting Uvicorn. PostgreSQL data is stored in the `postgres_data` volume. Stop the stack with `docker compose down`; add `-v` to delete the database volume.
+### Production-like stack
 
-If `.env` is already used for local development, merge the keys from `.env.compose.example` instead of replacing it. Set `API_PORT` in `.env` to change the published API port.
+Run the base file alone to bypass the development override:
+
+```bash
+cp .env.compose.example .env
+docker compose -f docker-compose.yml up --build
+```
+
+The API container runs `alembic upgrade head` before starting Uvicorn. The `api` service runs with `APP_ENV=prod`; `DATABASE_URL` and the PostgreSQL credentials come from `.env`. Inside Compose, use the service name `postgres` as the database host.
+
+PostgreSQL data is stored in the `postgres_data` volume; SQLite development data is stored in `sqlite_data`. Stop the stack with `docker compose down` (or `docker compose -f docker-compose.yml down` for the base-only stack); add `-v` to delete the database volumes.
+
+Use `API_PORT` to change the published API port. If `.env` is already used for local development, merge the keys from the relevant example file instead of replacing it.
 
 ## Tests and code quality
 
