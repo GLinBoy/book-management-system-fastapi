@@ -145,6 +145,21 @@ APP_ENV=prod DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/book
 
 An invalid `APP_ENV` value is rejected at startup. `.env.example` documents the available variables. Never commit credentials or your real `.env`.
 
+## Docker
+
+A production-like Compose stack is available with `api` and `postgres`:
+
+```bash
+cp .env.compose.example .env
+docker compose up --build
+```
+
+The API is served at http://127.0.0.1:8000. The `api` service runs with `APP_ENV=prod`; `DATABASE_URL` and the PostgreSQL credentials come from `.env`. Inside Compose, use the service name `postgres` as the database host.
+
+The API container runs `alembic upgrade head` before starting Uvicorn. PostgreSQL data is stored in the `postgres_data` volume. Stop the stack with `docker compose down`; add `-v` to delete the database volume.
+
+If `.env` is already used for local development, merge the keys from `.env.compose.example` instead of replacing it. Set `API_PORT` in `.env` to change the published API port.
+
 ## Tests and code quality
 
 ```bash
