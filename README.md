@@ -181,6 +181,22 @@ PostgreSQL data is stored in the `postgres_data` volume; SQLite development data
 
 Use `API_PORT` to change the published API port. If `.env` is already used for local development, merge the keys from the relevant example file instead of replacing it.
 
+### Image checks
+
+Build and verify the production image:
+
+```bash
+make docker-check
+```
+
+The check enforces a 400 MiB size limit by default and verifies that the image:
+
+- runs as uid 10001
+- contains no `.env`, `.git`, `tests`, or `dev.db`
+- does not include development dependencies (`faker`, `pytest`, `ruff`, `mypy`)
+
+Override the size limit with `MAX_IMAGE_SIZE_MB=... make docker-check`. `.dockerignore` keeps local environments, caches, database files, secrets, tests, and tooling out of the build context.
+
 ## Tests and code quality
 
 ```bash
