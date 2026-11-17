@@ -197,6 +197,22 @@ The check enforces a 400 MiB size limit by default and verifies that the image:
 
 Override the size limit with `MAX_IMAGE_SIZE_MB=... make docker-check`. `.dockerignore` keeps local environments, caches, database files, secrets, tests, and tooling out of the build context.
 
+## Continuous integration
+
+GitHub Actions runs on pull requests and on pushes to `main` and `v*` tags:
+
+- lint and static type checks
+- tests against SQLite and PostgreSQL
+- production Docker image build
+
+On pushes to `main` and `v*` tags, the image is published to:
+
+```text
+ghcr.io/glinboy/book-management-system-fastapi
+```
+
+Images are tagged by branch, semantic version, and commit SHA. Test runs upload `coverage-sqlite` and `coverage-postgres` artifacts containing `coverage.xml`.
+
 ## Tests and code quality
 
 ```bash
