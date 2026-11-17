@@ -222,6 +222,16 @@ The `main` branch requires these checks before merging:
 
 Branch protection also requires a pull request, applies to administrators, and blocks force pushes and branch deletion. uv caches are shared across CI runs through `astral-sh/setup-uv`.
 
+## Dependency updates
+
+Dependabot is configured in `.github/dependabot.yml` and runs weekly for:
+
+- Python dependencies through `uv.lock`
+- Docker images in the Dockerfile and Compose files
+- GitHub Actions workflow versions
+
+Minor and patch updates are grouped per ecosystem; major updates are opened separately. Pre-commit hook versions are updated manually with `uv run pre-commit autoupdate`.
+
 ## Tests and code quality
 
 ```bash
