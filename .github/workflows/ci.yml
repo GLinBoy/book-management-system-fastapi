@@ -27,8 +27,7 @@ jobs:
         with:
           version: "0.12.23"
           python-version: "3.14"
-          # Caching is added with the caching and branch-protection work.
-          enable-cache: false
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --locked
@@ -79,7 +78,7 @@ jobs:
         with:
           version: "0.12.23"
           python-version: "3.14"
-          enable-cache: false
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --locked

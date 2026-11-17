@@ -213,6 +213,15 @@ ghcr.io/glinboy/book-management-system-fastapi
 
 Images are tagged by branch, semantic version, and commit SHA. Test runs upload `coverage-sqlite` and `coverage-postgres` artifacts containing `coverage.xml`.
 
+The `main` branch requires these checks before merging:
+
+- `Lint and type check`
+- `Test (sqlite)`
+- `Test (postgres)`
+- `Docker build`
+
+Branch protection also requires a pull request, applies to administrators, and blocks force pushes and branch deletion. uv caches are shared across CI runs through `astral-sh/setup-uv`.
+
 ## Tests and code quality
 
 ```bash
